@@ -11,6 +11,10 @@
 - [Example app](/example/)
 - Tests
 
+## Compatibility
+
+This plugin is currently compatible with Pocketbase v0.11.0 and pocketbase (dart plugin) v0.6.0.
+
 ## Getting Started
 
 Replace a pocketbase client with a drift client.
