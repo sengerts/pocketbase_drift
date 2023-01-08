@@ -1,9 +1,9 @@
 import 'dart:io' as io;
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:pocketbase_drift/pocketbase_drift.dart';
 
 void main() {
@@ -16,12 +16,13 @@ void main() {
 
   late final PocketBaseDrift client;
 
-  setUpAll(() async {
+  setUpAll(() {
     client = PocketBaseDrift(
       url,
       connection: DatabaseConnection(NativeDatabase.memory()),
     );
-    await client.pocketbase.admins.authViaEmail(
+
+    return client.pocketbase.admins.authWithPassword(
       username,
       password,
     );
@@ -32,8 +33,10 @@ void main() {
   });
 
   test('check records call', () async {
-    final remote = await client.pocketbase.records.getFullList('todo');
-    final local = await client.getRecords('todo');
+    final remote = await client.pocketbase.collection('todo').getFullList();
+    final local = await client.getRecords('todo', onError: (e) {
+      fail('Error fetching data from remote database (no internet connection?)!');
+    });
 
     expect(remote, isNotEmpty);
     expect(local, isNotEmpty);
@@ -41,10 +44,12 @@ void main() {
   });
 
   test('check record call', () async {
-    final remote = await client.pocketbase.records.getFullList('todo');
+    final remote = await client.pocketbase.collection('todo').getFullList();
 
     final first = remote.first;
-    final result = await client.getRecord('todo', first.id);
+    final result = await client.getRecord('todo', first.id, onError: (e) {
+      fail('Error fetching data from remote database (no internet connection?)!');
+    });
 
     expect(first.id, result?.id);
   });
@@ -52,21 +57,23 @@ void main() {
   test('check new record update', () async {
     final records = await client.getRecords('todo');
 
-    final item = await client.pocketbase.records.create('todo', body: {
+    final item = await client.pocketbase.collection('todo').create(body: {
       'name': 'test',
     });
 
-    final remote = await client.pocketbase.records.getFullList('todo');
+    final remote = await client.pocketbase.collection('todo').getFullList();
 
     expect(remote, isNotEmpty);
     expect(remote.length, records.length + 1);
 
     // Server and cache should update
-    final newItems = await client.getRecords('todo');
+    final newItems = await client.getRecords('todo', onError: (e) {
+      fail('Error fetching data from remote database (no internet connection?)!');
+    });
     expect(newItems.length, remote.length);
 
     // Delete item
-    await client.pocketbase.records.delete('todo', item.id);
+    await client.pocketbase.collection('todo').delete(item.id);
   });
 
   test(
@@ -80,11 +87,12 @@ void main() {
         debugPrint('added $i / 1000');
       }
 
-      final local = await client.getRecords('todo');
+      final local = await client.getRecords('todo', onError: (e) {
+        fail('Error fetching data from remote database (no internet connection?)!');
+      });
 
       expect(local.length >= 1000, true);
     },
-    skip: true,
   );
 
   test('test search', () async {
@@ -101,20 +109,30 @@ void main() {
       'name': 'This also is a test',
     });
 
-    final local = await client.getRecords('todo');
+    final local = await client.getRecords('todo', onError: (e) {
+      fail('Error fetching data from remote database (no internet connection?)!');
+    });
     final search = await client.search('this is a test', collection: 'todo');
 
     expect(local.length >= 4, true);
     expect(search.isNotEmpty, true);
 
-    await client.deleteRecord('todo', a.id);
-    await client.deleteRecord('todo', b.id);
-    await client.deleteRecord('todo', c.id);
-    await client.deleteRecord('todo', d.id);
+    await client.deleteRecord('todo', a.id, onError: (e) {
+      fail('Error deleting data from remote database (no internet connection?)!');
+    });
+    await client.deleteRecord('todo', b.id, onError: (e) {
+      fail('Error deleting data from remote database (no internet connection?)!');
+    });
+    await client.deleteRecord('todo', c.id, onError: (e) {
+      fail('Error deleting data from remote database (no internet connection?)!');
+    });
+    await client.deleteRecord('todo', d.id, onError: (e) {
+      fail('Error deleting data from remote database (no internet connection?)!');
+    });
   });
 
   test('check for double inserts', () async {
-    final item = await client.pocketbase.records.create('todo', body: {
+    final item = await client.pocketbase.collection('todo').create(body: {
       'name': 'test item',
     });
 
@@ -132,7 +150,9 @@ void main() {
   });
 
   test('check collection stream progress', () async {
-    final stream = client.updateCollection('todo');
+    final stream = client.updateCollection('todo', onError: (e) {
+      fail('Error updating local data using remote database (no internet connection?)!');
+    });
     final results = <double>[];
 
     await for (final progress in stream) {
@@ -146,11 +166,15 @@ void main() {
   });
 
   test('check offline', () async {
-    final records = await client.getRecords('todo');
+    final records = await client.getRecords('todo', onError: (e) {
+      // expected here since we are offline
+    });
 
     // Call records again offline
     PocketBaseHttpClient.offline = true;
-    final local = await client.getRecords('todo');
+    final local = await client.getRecords('todo', onError: (e) {
+      // expected here since we are offline
+    });
 
     expect(local, isNotEmpty);
     expect(local.length, records.length);

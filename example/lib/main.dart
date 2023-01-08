@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'package:pocketbase_drift/pocketbase_drift.dart';
 
 const username = 'test@admin.com';
@@ -43,7 +42,7 @@ class _ExampleState extends State<Example> {
   }
 
   Future<void> init() async {
-    await client.pocketbase.admins.authViaEmail(
+    await client.pocketbase.admins.authWithPassword(
       username,
       password,
     );
@@ -56,7 +55,11 @@ class _ExampleState extends State<Example> {
 
   Future<void> refresh(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    await for (final item in client.updateCollection('todo')) {
+    await for (final item in client.updateCollection('todo', onError: (e) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Error fetching data from remote database (no internet connection?)!')),
+      );
+    })) {
       debugPrint('todo progress: $item');
       if (mounted) {
         setState(() {
@@ -133,7 +136,12 @@ class _ExampleState extends State<Example> {
                 : RefreshIndicator(
                     onRefresh: () => refresh(context),
                     child: StreamBuilder<List<RecordModel>>(
-                      stream: client.watchRecords('todo'),
+                      stream: client.watchRecords('todo', onError: (e) {
+                        final messenger = ScaffoldMessenger.of(context);
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('Error fetching data from remote database (no internet connection?)!')),
+                        );
+                      }),
                       builder: (context, snapshot) {
                         if (snapshot.hasData) {
                           final records = snapshot.data!;
@@ -185,7 +193,12 @@ class _ExampleState extends State<Example> {
           trailing: IconButton(
             icon: const Icon(Icons.delete),
             onPressed: () async {
-              await client.deleteRecord('todo', record.id);
+              await client.deleteRecord('todo', record.id, onError: (e) {
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Error deleting data in remote database (no internet connection?)!')),
+                );
+              });
               if (mounted) setState(() {});
             },
           ),

@@ -2,13 +2,16 @@ part of '../pocketbase_drift.dart';
 
 const int _kDefaultPageSize = 250;
 
+typedef PocketBaseErrorHandler = void Function(Object e);
+
 /// [PocketBase] client backed by drift store (sqlite)
 class PocketBaseDrift {
   PocketBaseDrift(
     this.url, {
     this.connection,
     this.dbName = 'database.db',
-  });
+  })  : pocketbase = createPocketBaseClient(url),
+        database = PocketBaseDatabase(dbName: dbName, connection: connection);
 
   /// [Url] of [PocketBase] server
   final String url;
@@ -17,13 +20,10 @@ class PocketBaseDrift {
   final String dbName;
 
   /// [PocketBase] internal client
-  late final pocketbase = createPocketBaseClient(url);
+  final PocketBase pocketbase;
 
   /// [PocketBase] internal database
-  late final database = PocketBaseDatabase(
-    dbName: dbName,
-    connection: connection,
-  );
+  final PocketBaseDatabase database;
 
   Stream<double> _fetchList(
     String collection, {
@@ -32,21 +32,21 @@ class PocketBaseDrift {
     String? sort,
     Map<String, dynamic> query = const {},
     Map<String, String> headers = const {},
+    PocketBaseErrorHandler? onError,
   }) async* {
     yield 0.0;
     final result = <RecordModel>[];
 
     Stream<double> request(int page) async* {
       try {
-        final list = await pocketbase.records.getList(
-          collection,
-          page: page,
-          perPage: perPage,
-          filter: filter,
-          sort: sort,
-          query: query,
-          headers: headers,
-        );
+        final list = await pocketbase.collection(collection).getList(
+              page: page,
+              perPage: perPage,
+              filter: filter,
+              sort: sort,
+              query: query,
+              headers: headers,
+            );
         debugPrint('fetched ${list.items.length} records for $collection');
         result.addAll(list.items);
 
@@ -63,6 +63,7 @@ class PocketBaseDrift {
         }
       } catch (e) {
         debugPrint('error fetching records for $collection: $e');
+        onError?.call(e);
       }
     }
 
@@ -75,15 +76,16 @@ class PocketBaseDrift {
     String collection,
     String id, {
     FetchPolicy policy = FetchPolicy.localAndRemote,
+    PocketBaseErrorHandler? onError,
   }) async {
     if (policy == FetchPolicy.remoteOnly) {
-      return pocketbase.records.getOne(collection, id);
+      return pocketbase.collection(collection).getOne(id);
     } else if (policy == FetchPolicy.localOnly) {
       return database.getRecord(collection, id);
     }
     final local = await database.getRecord(collection, id);
     try {
-      final remote = await pocketbase.records.getOne(collection, id);
+      final remote = await pocketbase.collection(collection).getOne(id);
       // ignore: unnecessary_null_comparison
       if (remote != null) {
         await database.setRecord(remote);
@@ -91,6 +93,7 @@ class PocketBaseDrift {
       return remote;
     } catch (e) {
       debugPrint('error getting remote record $collection/$id --> $e');
+      onError?.call(e);
     }
     return local;
   }
@@ -99,22 +102,28 @@ class PocketBaseDrift {
     String collection, {
     FetchPolicy policy = FetchPolicy.localAndRemote,
     String? filter,
+    PocketBaseErrorHandler? onError,
   }) async {
     if (policy == FetchPolicy.remoteOnly) {
-      await _fetchList(collection).last;
+      await _fetchList(collection, onError: onError).last;
     } else if (policy == FetchPolicy.localAndRemote) {
-      await updateCollection(collection, filter: filter).last;
+      await updateCollection(collection, filter: filter, onError: onError).last;
     }
     final results = await database.getRecords(collection);
     debugPrint('$policy --> $collection --> ${results.length}');
     return results;
   }
 
-  Future<void> deleteRecord(String collection, String id) async {
+  Future<void> deleteRecord(
+    String collection,
+    String id, {
+    PocketBaseErrorHandler? onError,
+  }) async {
     try {
-      await pocketbase.records.delete(collection, id);
+      await pocketbase.collection(collection).delete(id);
     } catch (e) {
       debugPrint('error deleting remote record $collection/$id --> $e');
+      onError?.call(e);
     }
     await database.deleteRecord(collection, id);
   }
@@ -127,12 +136,15 @@ class PocketBaseDrift {
     if (removeId) {
       data.remove('id');
     }
-    final item = await pocketbase.records.create(
-      collection,
-      body: data,
-    );
-    await database.setRecord(item);
-    return item;
+    try {
+      final item = await pocketbase.collection(collection).create(body: data);
+      await database.setRecord(item);
+      return item;
+    } catch (e) {
+      debugPrint('error additing remote record --> $e');
+      // TODO Should we still add the new item to the local database in case of error?
+      rethrow;
+    }
   }
 
   Future<RecordModel> updateRecord(
@@ -140,27 +152,31 @@ class PocketBaseDrift {
     String id,
     Map<String, dynamic> data,
   ) async {
-    final item = await pocketbase.records.update(
-      collection,
-      id,
-      body: data,
-    );
-    await database.setRecord(item);
-    return item;
+    try {
+      final item = await pocketbase.collection(collection).update(id, body: data);
+      await database.setRecord(item);
+      return item;
+    } catch (e) {
+      debugPrint('error updating remote record with id $id --> $e');
+      // TODO Should we still update the  item in the local database in case of error?
+      rethrow;
+    }
   }
 
   Stream<List<RecordModel>> watchRecords(
     String collection, {
     FetchPolicy policy = FetchPolicy.localAndRemote,
     String? filter,
+    PocketBaseErrorHandler? onError,
   }) async* {
     yield await getRecords(
       collection,
       policy: FetchPolicy.localOnly,
       filter: filter,
+      // local fetching only so no onError handling needed here
     );
     if (policy == FetchPolicy.localAndRemote) {
-      await updateCollection(collection, filter: filter).last;
+      await updateCollection(collection, filter: filter, onError: onError).last;
     }
     yield* database.watchRecords(collection);
   }
@@ -173,7 +189,11 @@ class PocketBaseDrift {
   }
 
   /// Update collection from remote server and return progress
-  Stream<double> updateCollection(String collection, {String? filter}) async* {
+  Stream<double> updateCollection(
+    String collection, {
+    String? filter,
+    PocketBaseErrorHandler? onError,
+  }) async* {
     yield 0.0;
     final local = await database.getRecords(collection);
     final lastRecord = local.newest();
@@ -185,10 +205,15 @@ class PocketBaseDrift {
           "updated > '${lastRecord.updated}'",
           if (filter != null) filter,
         ].join(' && '),
+        onError: onError,
       );
     } else {
       // Missing last record, get all
-      yield* _fetchList(collection, filter: filter);
+      yield* _fetchList(
+        collection,
+        filter: filter,
+        onError: onError,
+      );
     }
 
     yield 1.0;

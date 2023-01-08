@@ -25,6 +25,13 @@ Replace a pocketbase client with a drift client.
 );
 ```
 
+## Run Tests
+
+To run the tests inside ./test/pocketbase_drift_store_test.dart:
+1. follow the [instructions](./test/pocketbase_drift_store_test.dart) for configuring the `sqlite3` binaries
+2. follow the instructions in `./example/README.md` for setting up and starting Pocketbase
+3. restart your IDE and then run the tests
+
 ## Web
 
 For web, you need to follow the instructions for [Drift](https://drift.simonbinder.eu/web/#drift-wasm) to copy the [sqlite wasm](https://github.com/simolus3/sqlite3.dart/releases) binary into the `web/` directory.
