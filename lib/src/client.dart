@@ -188,7 +188,7 @@ class PocketBaseDrift {
       );
     } else {
       // Missing last record, get all
-      yield* _fetchList(collection);
+      yield* _fetchList(collection, filter: filter);
     }
 
     yield 1.0;
