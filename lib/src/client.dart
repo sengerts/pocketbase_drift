@@ -33,11 +33,14 @@ class PocketBaseDrift {
     Map<String, dynamic> query = const {},
     Map<String, String> headers = const {},
     PocketBaseErrorHandler? onError,
-  }) async* {
-    yield 0.0;
+  }) {
+    final streamController = StreamController<double>();
+
+    streamController.add(0.0);
+
     final result = <ExtendedRecordModel>[];
 
-    Stream<double> request(int page) async* {
+    Future<void> request(int page, StreamController<double> streamController) async {
       // if this fails (e.g. due to loss of internet connection), the outer transaction will be rollbacked
       final list = await pocketbase.collection(collection).getList(
             page: page,
@@ -55,36 +58,30 @@ class PocketBaseDrift {
 
       final progress = list.page / list.totalPages;
       if (!progress.isInfinite) {
-        yield progress;
+        streamController.add(progress);
       }
 
       // Add to database
       await database.setRecords(extendedListItems);
 
       if (list.items.isNotEmpty && list.totalItems > result.length) {
-        yield* request(page + 1);
+        await request(page + 1, streamController);
       }
 
       // TODO Store (collection,filter) last full sync entry
     }
 
-    final streamController = StreamController<double>();
-
-    try {
-      await database.transaction(() async {
-        streamController.addStream(request(1));
-        streamController.add(1.0);
-      });
-    } catch (e) {
+    database.transaction(() async {
+      await request(1, streamController);
+      streamController.add(1.0);
+    }).catchError((e) {
       // in case of any error during fetching, the whole transaction is rollbacked -> same local data as before trying to fetch from remote
       debugPrint('error fetching records for $collection: $e');
       // TODO Mark collection locally as dirty/ old
       onError?.call(e);
-    } finally {
-      streamController.close();
-    }
+    }).whenComplete(() => streamController.close());
 
-    yield* streamController.stream;
+    return streamController.stream;
   }
 
   Future<ExtendedRecordModel?> getRecord(
