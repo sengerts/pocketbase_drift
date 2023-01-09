@@ -305,7 +305,6 @@ class PocketBaseDrift {
   }
 
   static ExtendedRecordModel buildFreshExtendedRecordModelFrom(final RecordModel recordModel) {
-    // TODO Fix: type '_InternalImmutableLinkedHashMap<dynamic, dynamic>' is not a subtype of type 'Map<String, List<RecordModel>>'
     return ExtendedRecordModel(
       id: recordModel.id,
       created: recordModel.created,
@@ -320,7 +319,6 @@ class PocketBaseDrift {
   }
 
   static ExtendedRecordModel buildUnsyncedCreatedRecordModelFrom(final String collectionIdOrName, final Map<String, dynamic> data) {
-    // TODO Fix: type '_InternalImmutableLinkedHashMap<dynamic, dynamic>' is not a subtype of type 'Map<String, List<RecordModel>>'
     return ExtendedRecordModel(
       collectionId: collectionIdOrName,
       collectionName: collectionIdOrName,
@@ -330,7 +328,6 @@ class PocketBaseDrift {
   }
 
   static ExtendedRecordModel buildUnsyncedUpdateRecordModelFrom(final ExtendedRecordModel recordModel, final Map<String, dynamic> data) {
-    // TODO Fix: type '_InternalImmutableLinkedHashMap<dynamic, dynamic>' is not a subtype of type 'Map<String, List<RecordModel>>'
     return ExtendedRecordModel(
       id: recordModel.id,
       created: recordModel.created,
