@@ -132,9 +132,9 @@ void main() {
   });
 
   test('check for double inserts', () async {
-    final item = await client.pocketbase.collection('todo').create(body: {
+    final item = PocketBaseDrift.buildFreshExtendedRecordModelFrom(await client.pocketbase.collection('todo').create(body: {
       'name': 'test item',
-    });
+    }));
 
     // Insert into database
     final id1 = await client.database.setRecord(item);
@@ -181,4 +181,6 @@ void main() {
 
     PocketBaseHttpClient.offline = false;
   });
+
+  // TODO Add more test cases for offline usage causing unsynced data before syncing again
 }

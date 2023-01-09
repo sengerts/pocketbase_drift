@@ -64,6 +64,48 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
   late final GeneratedColumn<String> updated = GeneratedColumn<String>(
       'updated', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _unsyncedReadMeta =
+      const VerificationMeta('unsyncedRead');
+  @override
+  late final GeneratedColumn<bool> unsyncedRead =
+      GeneratedColumn<bool>('unsynced_read', aliasedName, true,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintsDependsOnDialect({
+            SqlDialect.sqlite: 'CHECK ("unsynced_read" IN (0, 1))',
+            SqlDialect.mysql: '',
+            SqlDialect.postgres: '',
+          }));
+  static const VerificationMeta _unsyncedCreationMeta =
+      const VerificationMeta('unsyncedCreation');
+  @override
+  late final GeneratedColumn<bool> unsyncedCreation =
+      GeneratedColumn<bool>('unsynced_creation', aliasedName, true,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintsDependsOnDialect({
+            SqlDialect.sqlite: 'CHECK ("unsynced_creation" IN (0, 1))',
+            SqlDialect.mysql: '',
+            SqlDialect.postgres: '',
+          }));
+  static const VerificationMeta _unsyncedUpdateMeta =
+      const VerificationMeta('unsyncedUpdate');
+  @override
+  late final GeneratedColumn<bool> unsyncedUpdate =
+      GeneratedColumn<bool>('unsynced_update', aliasedName, true,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintsDependsOnDialect({
+            SqlDialect.sqlite: 'CHECK ("unsynced_update" IN (0, 1))',
+            SqlDialect.mysql: '',
+            SqlDialect.postgres: '',
+          }));
+  static const VerificationMeta _lastSyncUpdatedMeta =
+      const VerificationMeta('lastSyncUpdated');
+  @override
+  late final GeneratedColumn<String> lastSyncUpdated = GeneratedColumn<String>(
+      'last_sync_updated', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -73,7 +115,11 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
         data,
         deleted,
         created,
-        updated
+        updated,
+        unsyncedRead,
+        unsyncedCreation,
+        unsyncedUpdate,
+        lastSyncUpdated
       ];
   @override
   String get aliasedName => _alias ?? 'records';
@@ -126,6 +172,30 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
     } else if (isInserting) {
       context.missing(_updatedMeta);
     }
+    if (data.containsKey('unsynced_read')) {
+      context.handle(
+          _unsyncedReadMeta,
+          unsyncedRead.isAcceptableOrUnknown(
+              data['unsynced_read']!, _unsyncedReadMeta));
+    }
+    if (data.containsKey('unsynced_creation')) {
+      context.handle(
+          _unsyncedCreationMeta,
+          unsyncedCreation.isAcceptableOrUnknown(
+              data['unsynced_creation']!, _unsyncedCreationMeta));
+    }
+    if (data.containsKey('unsynced_update')) {
+      context.handle(
+          _unsyncedUpdateMeta,
+          unsyncedUpdate.isAcceptableOrUnknown(
+              data['unsynced_update']!, _unsyncedUpdateMeta));
+    }
+    if (data.containsKey('last_sync_updated')) {
+      context.handle(
+          _lastSyncUpdatedMeta,
+          lastSyncUpdated.isAcceptableOrUnknown(
+              data['last_sync_updated']!, _lastSyncUpdatedMeta));
+    }
     return context;
   }
 
@@ -155,6 +225,14 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
           .read(DriftSqlType.string, data['${effectivePrefix}created'])!,
       updated: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}updated'])!,
+      unsyncedRead: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}unsynced_read']),
+      unsyncedCreation: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}unsynced_creation']),
+      unsyncedUpdate: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}unsynced_update']),
+      lastSyncUpdated: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}last_sync_updated']),
     );
   }
 
@@ -176,6 +254,10 @@ class Record extends DataClass implements Insertable<Record> {
   final bool? deleted;
   final String created;
   final String updated;
+  final bool? unsyncedRead;
+  final bool? unsyncedCreation;
+  final bool? unsyncedUpdate;
+  final String? lastSyncUpdated;
   const Record(
       {required this.id,
       required this.rowId,
@@ -184,7 +266,11 @@ class Record extends DataClass implements Insertable<Record> {
       required this.data,
       this.deleted,
       required this.created,
-      required this.updated});
+      required this.updated,
+      this.unsyncedRead,
+      this.unsyncedCreation,
+      this.unsyncedUpdate,
+      this.lastSyncUpdated});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -201,6 +287,18 @@ class Record extends DataClass implements Insertable<Record> {
     }
     map['created'] = Variable<String>(created);
     map['updated'] = Variable<String>(updated);
+    if (!nullToAbsent || unsyncedRead != null) {
+      map['unsynced_read'] = Variable<bool>(unsyncedRead);
+    }
+    if (!nullToAbsent || unsyncedCreation != null) {
+      map['unsynced_creation'] = Variable<bool>(unsyncedCreation);
+    }
+    if (!nullToAbsent || unsyncedUpdate != null) {
+      map['unsynced_update'] = Variable<bool>(unsyncedUpdate);
+    }
+    if (!nullToAbsent || lastSyncUpdated != null) {
+      map['last_sync_updated'] = Variable<String>(lastSyncUpdated);
+    }
     return map;
   }
 
@@ -216,6 +314,18 @@ class Record extends DataClass implements Insertable<Record> {
           : Value(deleted),
       created: Value(created),
       updated: Value(updated),
+      unsyncedRead: unsyncedRead == null && nullToAbsent
+          ? const Value.absent()
+          : Value(unsyncedRead),
+      unsyncedCreation: unsyncedCreation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(unsyncedCreation),
+      unsyncedUpdate: unsyncedUpdate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(unsyncedUpdate),
+      lastSyncUpdated: lastSyncUpdated == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncUpdated),
     );
   }
 
@@ -231,6 +341,10 @@ class Record extends DataClass implements Insertable<Record> {
       deleted: serializer.fromJson<bool?>(json['deleted']),
       created: serializer.fromJson<String>(json['created']),
       updated: serializer.fromJson<String>(json['updated']),
+      unsyncedRead: serializer.fromJson<bool?>(json['unsyncedRead']),
+      unsyncedCreation: serializer.fromJson<bool?>(json['unsyncedCreation']),
+      unsyncedUpdate: serializer.fromJson<bool?>(json['unsyncedUpdate']),
+      lastSyncUpdated: serializer.fromJson<String?>(json['lastSyncUpdated']),
     );
   }
   @override
@@ -245,6 +359,10 @@ class Record extends DataClass implements Insertable<Record> {
       'deleted': serializer.toJson<bool?>(deleted),
       'created': serializer.toJson<String>(created),
       'updated': serializer.toJson<String>(updated),
+      'unsyncedRead': serializer.toJson<bool?>(unsyncedRead),
+      'unsyncedCreation': serializer.toJson<bool?>(unsyncedCreation),
+      'unsyncedUpdate': serializer.toJson<bool?>(unsyncedUpdate),
+      'lastSyncUpdated': serializer.toJson<String?>(lastSyncUpdated),
     };
   }
 
@@ -256,7 +374,11 @@ class Record extends DataClass implements Insertable<Record> {
           Map<String, dynamic>? data,
           Value<bool?> deleted = const Value.absent(),
           String? created,
-          String? updated}) =>
+          String? updated,
+          Value<bool?> unsyncedRead = const Value.absent(),
+          Value<bool?> unsyncedCreation = const Value.absent(),
+          Value<bool?> unsyncedUpdate = const Value.absent(),
+          Value<String?> lastSyncUpdated = const Value.absent()}) =>
       Record(
         id: id ?? this.id,
         rowId: rowId ?? this.rowId,
@@ -266,6 +388,16 @@ class Record extends DataClass implements Insertable<Record> {
         deleted: deleted.present ? deleted.value : this.deleted,
         created: created ?? this.created,
         updated: updated ?? this.updated,
+        unsyncedRead:
+            unsyncedRead.present ? unsyncedRead.value : this.unsyncedRead,
+        unsyncedCreation: unsyncedCreation.present
+            ? unsyncedCreation.value
+            : this.unsyncedCreation,
+        unsyncedUpdate:
+            unsyncedUpdate.present ? unsyncedUpdate.value : this.unsyncedUpdate,
+        lastSyncUpdated: lastSyncUpdated.present
+            ? lastSyncUpdated.value
+            : this.lastSyncUpdated,
       );
   @override
   String toString() {
@@ -277,14 +409,29 @@ class Record extends DataClass implements Insertable<Record> {
           ..write('data: $data, ')
           ..write('deleted: $deleted, ')
           ..write('created: $created, ')
-          ..write('updated: $updated')
+          ..write('updated: $updated, ')
+          ..write('unsyncedRead: $unsyncedRead, ')
+          ..write('unsyncedCreation: $unsyncedCreation, ')
+          ..write('unsyncedUpdate: $unsyncedUpdate, ')
+          ..write('lastSyncUpdated: $lastSyncUpdated')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(
-      id, rowId, collectionId, collectionName, data, deleted, created, updated);
+      id,
+      rowId,
+      collectionId,
+      collectionName,
+      data,
+      deleted,
+      created,
+      updated,
+      unsyncedRead,
+      unsyncedCreation,
+      unsyncedUpdate,
+      lastSyncUpdated);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -296,7 +443,11 @@ class Record extends DataClass implements Insertable<Record> {
           other.data == this.data &&
           other.deleted == this.deleted &&
           other.created == this.created &&
-          other.updated == this.updated);
+          other.updated == this.updated &&
+          other.unsyncedRead == this.unsyncedRead &&
+          other.unsyncedCreation == this.unsyncedCreation &&
+          other.unsyncedUpdate == this.unsyncedUpdate &&
+          other.lastSyncUpdated == this.lastSyncUpdated);
 }
 
 class RecordsCompanion extends UpdateCompanion<Record> {
@@ -308,6 +459,10 @@ class RecordsCompanion extends UpdateCompanion<Record> {
   final Value<bool?> deleted;
   final Value<String> created;
   final Value<String> updated;
+  final Value<bool?> unsyncedRead;
+  final Value<bool?> unsyncedCreation;
+  final Value<bool?> unsyncedUpdate;
+  final Value<String?> lastSyncUpdated;
   const RecordsCompanion({
     this.id = const Value.absent(),
     this.rowId = const Value.absent(),
@@ -317,6 +472,10 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     this.deleted = const Value.absent(),
     this.created = const Value.absent(),
     this.updated = const Value.absent(),
+    this.unsyncedRead = const Value.absent(),
+    this.unsyncedCreation = const Value.absent(),
+    this.unsyncedUpdate = const Value.absent(),
+    this.lastSyncUpdated = const Value.absent(),
   });
   RecordsCompanion.insert({
     this.id = const Value.absent(),
@@ -327,6 +486,10 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     this.deleted = const Value.absent(),
     required String created,
     required String updated,
+    this.unsyncedRead = const Value.absent(),
+    this.unsyncedCreation = const Value.absent(),
+    this.unsyncedUpdate = const Value.absent(),
+    this.lastSyncUpdated = const Value.absent(),
   })  : rowId = Value(rowId),
         collectionId = Value(collectionId),
         collectionName = Value(collectionName),
@@ -342,6 +505,10 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     Expression<bool>? deleted,
     Expression<String>? created,
     Expression<String>? updated,
+    Expression<bool>? unsyncedRead,
+    Expression<bool>? unsyncedCreation,
+    Expression<bool>? unsyncedUpdate,
+    Expression<String>? lastSyncUpdated,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -352,6 +519,10 @@ class RecordsCompanion extends UpdateCompanion<Record> {
       if (deleted != null) 'deleted': deleted,
       if (created != null) 'created': created,
       if (updated != null) 'updated': updated,
+      if (unsyncedRead != null) 'unsynced_read': unsyncedRead,
+      if (unsyncedCreation != null) 'unsynced_creation': unsyncedCreation,
+      if (unsyncedUpdate != null) 'unsynced_update': unsyncedUpdate,
+      if (lastSyncUpdated != null) 'last_sync_updated': lastSyncUpdated,
     });
   }
 
@@ -363,7 +534,11 @@ class RecordsCompanion extends UpdateCompanion<Record> {
       Value<Map<String, dynamic>>? data,
       Value<bool?>? deleted,
       Value<String>? created,
-      Value<String>? updated}) {
+      Value<String>? updated,
+      Value<bool?>? unsyncedRead,
+      Value<bool?>? unsyncedCreation,
+      Value<bool?>? unsyncedUpdate,
+      Value<String?>? lastSyncUpdated}) {
     return RecordsCompanion(
       id: id ?? this.id,
       rowId: rowId ?? this.rowId,
@@ -373,6 +548,10 @@ class RecordsCompanion extends UpdateCompanion<Record> {
       deleted: deleted ?? this.deleted,
       created: created ?? this.created,
       updated: updated ?? this.updated,
+      unsyncedRead: unsyncedRead ?? this.unsyncedRead,
+      unsyncedCreation: unsyncedCreation ?? this.unsyncedCreation,
+      unsyncedUpdate: unsyncedUpdate ?? this.unsyncedUpdate,
+      lastSyncUpdated: lastSyncUpdated ?? this.lastSyncUpdated,
     );
   }
 
@@ -404,6 +583,18 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     if (updated.present) {
       map['updated'] = Variable<String>(updated.value);
     }
+    if (unsyncedRead.present) {
+      map['unsynced_read'] = Variable<bool>(unsyncedRead.value);
+    }
+    if (unsyncedCreation.present) {
+      map['unsynced_creation'] = Variable<bool>(unsyncedCreation.value);
+    }
+    if (unsyncedUpdate.present) {
+      map['unsynced_update'] = Variable<bool>(unsyncedUpdate.value);
+    }
+    if (lastSyncUpdated.present) {
+      map['last_sync_updated'] = Variable<String>(lastSyncUpdated.value);
+    }
     return map;
   }
 
@@ -417,7 +608,11 @@ class RecordsCompanion extends UpdateCompanion<Record> {
           ..write('data: $data, ')
           ..write('deleted: $deleted, ')
           ..write('created: $created, ')
-          ..write('updated: $updated')
+          ..write('updated: $updated, ')
+          ..write('unsyncedRead: $unsyncedRead, ')
+          ..write('unsyncedCreation: $unsyncedCreation, ')
+          ..write('unsyncedUpdate: $unsyncedUpdate, ')
+          ..write('lastSyncUpdated: $lastSyncUpdated')
           ..write(')'))
         .toString();
   }
@@ -569,6 +764,627 @@ class TextEntriesCompanion extends UpdateCompanion<TextEntrie> {
   }
 }
 
+class $UnsyncedDeletedRecordsTable extends UnsyncedDeletedRecords
+    with TableInfo<$UnsyncedDeletedRecordsTable, UnsyncedDeletedRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UnsyncedDeletedRecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _rowIdMeta = const VerificationMeta('rowId');
+  @override
+  late final GeneratedColumn<String> rowId = GeneratedColumn<String>(
+      'row_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _collectionIdMeta =
+      const VerificationMeta('collectionId');
+  @override
+  late final GeneratedColumn<String> collectionId = GeneratedColumn<String>(
+      'collection_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _collectionNameMeta =
+      const VerificationMeta('collectionName');
+  @override
+  late final GeneratedColumn<String> collectionName = GeneratedColumn<String>(
+      'collection_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _dataMeta = const VerificationMeta('data');
+  @override
+  late final GeneratedColumnWithTypeConverter<Map<String, dynamic>, String>
+      data = GeneratedColumn<String>('data', aliasedName, false,
+              type: DriftSqlType.string, requiredDuringInsert: true)
+          .withConverter<Map<String, dynamic>>(
+              $UnsyncedDeletedRecordsTable.$converterdata);
+  static const VerificationMeta _deletedMeta =
+      const VerificationMeta('deleted');
+  @override
+  late final GeneratedColumn<bool> deleted =
+      GeneratedColumn<bool>('deleted', aliasedName, true,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintsDependsOnDialect({
+            SqlDialect.sqlite: 'CHECK ("deleted" IN (0, 1))',
+            SqlDialect.mysql: '',
+            SqlDialect.postgres: '',
+          }));
+  static const VerificationMeta _createdMeta =
+      const VerificationMeta('created');
+  @override
+  late final GeneratedColumn<String> created = GeneratedColumn<String>(
+      'created', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _updatedMeta =
+      const VerificationMeta('updated');
+  @override
+  late final GeneratedColumn<String> updated = GeneratedColumn<String>(
+      'updated', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _unsyncedReadMeta =
+      const VerificationMeta('unsyncedRead');
+  @override
+  late final GeneratedColumn<bool> unsyncedRead =
+      GeneratedColumn<bool>('unsynced_read', aliasedName, true,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintsDependsOnDialect({
+            SqlDialect.sqlite: 'CHECK ("unsynced_read" IN (0, 1))',
+            SqlDialect.mysql: '',
+            SqlDialect.postgres: '',
+          }));
+  static const VerificationMeta _unsyncedCreationMeta =
+      const VerificationMeta('unsyncedCreation');
+  @override
+  late final GeneratedColumn<bool> unsyncedCreation =
+      GeneratedColumn<bool>('unsynced_creation', aliasedName, true,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintsDependsOnDialect({
+            SqlDialect.sqlite: 'CHECK ("unsynced_creation" IN (0, 1))',
+            SqlDialect.mysql: '',
+            SqlDialect.postgres: '',
+          }));
+  static const VerificationMeta _unsyncedUpdateMeta =
+      const VerificationMeta('unsyncedUpdate');
+  @override
+  late final GeneratedColumn<bool> unsyncedUpdate =
+      GeneratedColumn<bool>('unsynced_update', aliasedName, true,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintsDependsOnDialect({
+            SqlDialect.sqlite: 'CHECK ("unsynced_update" IN (0, 1))',
+            SqlDialect.mysql: '',
+            SqlDialect.postgres: '',
+          }));
+  static const VerificationMeta _lastSyncUpdatedMeta =
+      const VerificationMeta('lastSyncUpdated');
+  @override
+  late final GeneratedColumn<String> lastSyncUpdated = GeneratedColumn<String>(
+      'last_sync_updated', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  @override
+  List<GeneratedColumn> get $columns => [
+        rowId,
+        collectionId,
+        collectionName,
+        data,
+        deleted,
+        created,
+        updated,
+        unsyncedRead,
+        unsyncedCreation,
+        unsyncedUpdate,
+        lastSyncUpdated,
+        id
+      ];
+  @override
+  String get aliasedName => _alias ?? 'unsynced_deleted_records';
+  @override
+  String get actualTableName => 'unsynced_deleted_records';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<UnsyncedDeletedRecord> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('row_id')) {
+      context.handle(
+          _rowIdMeta, rowId.isAcceptableOrUnknown(data['row_id']!, _rowIdMeta));
+    } else if (isInserting) {
+      context.missing(_rowIdMeta);
+    }
+    if (data.containsKey('collection_id')) {
+      context.handle(
+          _collectionIdMeta,
+          collectionId.isAcceptableOrUnknown(
+              data['collection_id']!, _collectionIdMeta));
+    } else if (isInserting) {
+      context.missing(_collectionIdMeta);
+    }
+    if (data.containsKey('collection_name')) {
+      context.handle(
+          _collectionNameMeta,
+          collectionName.isAcceptableOrUnknown(
+              data['collection_name']!, _collectionNameMeta));
+    } else if (isInserting) {
+      context.missing(_collectionNameMeta);
+    }
+    context.handle(_dataMeta, const VerificationResult.success());
+    if (data.containsKey('deleted')) {
+      context.handle(_deletedMeta,
+          deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta));
+    }
+    if (data.containsKey('created')) {
+      context.handle(_createdMeta,
+          created.isAcceptableOrUnknown(data['created']!, _createdMeta));
+    } else if (isInserting) {
+      context.missing(_createdMeta);
+    }
+    if (data.containsKey('updated')) {
+      context.handle(_updatedMeta,
+          updated.isAcceptableOrUnknown(data['updated']!, _updatedMeta));
+    } else if (isInserting) {
+      context.missing(_updatedMeta);
+    }
+    if (data.containsKey('unsynced_read')) {
+      context.handle(
+          _unsyncedReadMeta,
+          unsyncedRead.isAcceptableOrUnknown(
+              data['unsynced_read']!, _unsyncedReadMeta));
+    }
+    if (data.containsKey('unsynced_creation')) {
+      context.handle(
+          _unsyncedCreationMeta,
+          unsyncedCreation.isAcceptableOrUnknown(
+              data['unsynced_creation']!, _unsyncedCreationMeta));
+    }
+    if (data.containsKey('unsynced_update')) {
+      context.handle(
+          _unsyncedUpdateMeta,
+          unsyncedUpdate.isAcceptableOrUnknown(
+              data['unsynced_update']!, _unsyncedUpdateMeta));
+    }
+    if (data.containsKey('last_sync_updated')) {
+      context.handle(
+          _lastSyncUpdatedMeta,
+          lastSyncUpdated.isAcceptableOrUnknown(
+              data['last_sync_updated']!, _lastSyncUpdatedMeta));
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+        {collectionId, rowId},
+      ];
+  @override
+  UnsyncedDeletedRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UnsyncedDeletedRecord(
+      rowId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}row_id'])!,
+      collectionId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}collection_id'])!,
+      collectionName: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}collection_name'])!,
+      data: $UnsyncedDeletedRecordsTable.$converterdata.fromSql(attachedDatabase
+          .typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}data'])!),
+      deleted: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}deleted']),
+      created: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}created'])!,
+      updated: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}updated'])!,
+      unsyncedRead: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}unsynced_read']),
+      unsyncedCreation: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}unsynced_creation']),
+      unsyncedUpdate: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}unsynced_update']),
+      lastSyncUpdated: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}last_sync_updated']),
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+    );
+  }
+
+  @override
+  $UnsyncedDeletedRecordsTable createAlias(String alias) {
+    return $UnsyncedDeletedRecordsTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<Map<String, dynamic>, String> $converterdata =
+      const JsonMapper();
+}
+
+class UnsyncedDeletedRecord extends DataClass
+    implements Insertable<UnsyncedDeletedRecord> {
+  final String rowId;
+  final String collectionId;
+  final String collectionName;
+  final Map<String, dynamic> data;
+  final bool? deleted;
+  final String created;
+  final String updated;
+  final bool? unsyncedRead;
+  final bool? unsyncedCreation;
+  final bool? unsyncedUpdate;
+  final String? lastSyncUpdated;
+  final int id;
+  const UnsyncedDeletedRecord(
+      {required this.rowId,
+      required this.collectionId,
+      required this.collectionName,
+      required this.data,
+      this.deleted,
+      required this.created,
+      required this.updated,
+      this.unsyncedRead,
+      this.unsyncedCreation,
+      this.unsyncedUpdate,
+      this.lastSyncUpdated,
+      required this.id});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['row_id'] = Variable<String>(rowId);
+    map['collection_id'] = Variable<String>(collectionId);
+    map['collection_name'] = Variable<String>(collectionName);
+    {
+      final converter = $UnsyncedDeletedRecordsTable.$converterdata;
+      map['data'] = Variable<String>(converter.toSql(data));
+    }
+    if (!nullToAbsent || deleted != null) {
+      map['deleted'] = Variable<bool>(deleted);
+    }
+    map['created'] = Variable<String>(created);
+    map['updated'] = Variable<String>(updated);
+    if (!nullToAbsent || unsyncedRead != null) {
+      map['unsynced_read'] = Variable<bool>(unsyncedRead);
+    }
+    if (!nullToAbsent || unsyncedCreation != null) {
+      map['unsynced_creation'] = Variable<bool>(unsyncedCreation);
+    }
+    if (!nullToAbsent || unsyncedUpdate != null) {
+      map['unsynced_update'] = Variable<bool>(unsyncedUpdate);
+    }
+    if (!nullToAbsent || lastSyncUpdated != null) {
+      map['last_sync_updated'] = Variable<String>(lastSyncUpdated);
+    }
+    map['id'] = Variable<int>(id);
+    return map;
+  }
+
+  UnsyncedDeletedRecordsCompanion toCompanion(bool nullToAbsent) {
+    return UnsyncedDeletedRecordsCompanion(
+      rowId: Value(rowId),
+      collectionId: Value(collectionId),
+      collectionName: Value(collectionName),
+      data: Value(data),
+      deleted: deleted == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deleted),
+      created: Value(created),
+      updated: Value(updated),
+      unsyncedRead: unsyncedRead == null && nullToAbsent
+          ? const Value.absent()
+          : Value(unsyncedRead),
+      unsyncedCreation: unsyncedCreation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(unsyncedCreation),
+      unsyncedUpdate: unsyncedUpdate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(unsyncedUpdate),
+      lastSyncUpdated: lastSyncUpdated == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncUpdated),
+      id: Value(id),
+    );
+  }
+
+  factory UnsyncedDeletedRecord.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UnsyncedDeletedRecord(
+      rowId: serializer.fromJson<String>(json['rowId']),
+      collectionId: serializer.fromJson<String>(json['collectionId']),
+      collectionName: serializer.fromJson<String>(json['collectionName']),
+      data: serializer.fromJson<Map<String, dynamic>>(json['data']),
+      deleted: serializer.fromJson<bool?>(json['deleted']),
+      created: serializer.fromJson<String>(json['created']),
+      updated: serializer.fromJson<String>(json['updated']),
+      unsyncedRead: serializer.fromJson<bool?>(json['unsyncedRead']),
+      unsyncedCreation: serializer.fromJson<bool?>(json['unsyncedCreation']),
+      unsyncedUpdate: serializer.fromJson<bool?>(json['unsyncedUpdate']),
+      lastSyncUpdated: serializer.fromJson<String?>(json['lastSyncUpdated']),
+      id: serializer.fromJson<int>(json['id']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'rowId': serializer.toJson<String>(rowId),
+      'collectionId': serializer.toJson<String>(collectionId),
+      'collectionName': serializer.toJson<String>(collectionName),
+      'data': serializer.toJson<Map<String, dynamic>>(data),
+      'deleted': serializer.toJson<bool?>(deleted),
+      'created': serializer.toJson<String>(created),
+      'updated': serializer.toJson<String>(updated),
+      'unsyncedRead': serializer.toJson<bool?>(unsyncedRead),
+      'unsyncedCreation': serializer.toJson<bool?>(unsyncedCreation),
+      'unsyncedUpdate': serializer.toJson<bool?>(unsyncedUpdate),
+      'lastSyncUpdated': serializer.toJson<String?>(lastSyncUpdated),
+      'id': serializer.toJson<int>(id),
+    };
+  }
+
+  UnsyncedDeletedRecord copyWith(
+          {String? rowId,
+          String? collectionId,
+          String? collectionName,
+          Map<String, dynamic>? data,
+          Value<bool?> deleted = const Value.absent(),
+          String? created,
+          String? updated,
+          Value<bool?> unsyncedRead = const Value.absent(),
+          Value<bool?> unsyncedCreation = const Value.absent(),
+          Value<bool?> unsyncedUpdate = const Value.absent(),
+          Value<String?> lastSyncUpdated = const Value.absent(),
+          int? id}) =>
+      UnsyncedDeletedRecord(
+        rowId: rowId ?? this.rowId,
+        collectionId: collectionId ?? this.collectionId,
+        collectionName: collectionName ?? this.collectionName,
+        data: data ?? this.data,
+        deleted: deleted.present ? deleted.value : this.deleted,
+        created: created ?? this.created,
+        updated: updated ?? this.updated,
+        unsyncedRead:
+            unsyncedRead.present ? unsyncedRead.value : this.unsyncedRead,
+        unsyncedCreation: unsyncedCreation.present
+            ? unsyncedCreation.value
+            : this.unsyncedCreation,
+        unsyncedUpdate:
+            unsyncedUpdate.present ? unsyncedUpdate.value : this.unsyncedUpdate,
+        lastSyncUpdated: lastSyncUpdated.present
+            ? lastSyncUpdated.value
+            : this.lastSyncUpdated,
+        id: id ?? this.id,
+      );
+  @override
+  String toString() {
+    return (StringBuffer('UnsyncedDeletedRecord(')
+          ..write('rowId: $rowId, ')
+          ..write('collectionId: $collectionId, ')
+          ..write('collectionName: $collectionName, ')
+          ..write('data: $data, ')
+          ..write('deleted: $deleted, ')
+          ..write('created: $created, ')
+          ..write('updated: $updated, ')
+          ..write('unsyncedRead: $unsyncedRead, ')
+          ..write('unsyncedCreation: $unsyncedCreation, ')
+          ..write('unsyncedUpdate: $unsyncedUpdate, ')
+          ..write('lastSyncUpdated: $lastSyncUpdated, ')
+          ..write('id: $id')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      rowId,
+      collectionId,
+      collectionName,
+      data,
+      deleted,
+      created,
+      updated,
+      unsyncedRead,
+      unsyncedCreation,
+      unsyncedUpdate,
+      lastSyncUpdated,
+      id);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UnsyncedDeletedRecord &&
+          other.rowId == this.rowId &&
+          other.collectionId == this.collectionId &&
+          other.collectionName == this.collectionName &&
+          other.data == this.data &&
+          other.deleted == this.deleted &&
+          other.created == this.created &&
+          other.updated == this.updated &&
+          other.unsyncedRead == this.unsyncedRead &&
+          other.unsyncedCreation == this.unsyncedCreation &&
+          other.unsyncedUpdate == this.unsyncedUpdate &&
+          other.lastSyncUpdated == this.lastSyncUpdated &&
+          other.id == this.id);
+}
+
+class UnsyncedDeletedRecordsCompanion
+    extends UpdateCompanion<UnsyncedDeletedRecord> {
+  final Value<String> rowId;
+  final Value<String> collectionId;
+  final Value<String> collectionName;
+  final Value<Map<String, dynamic>> data;
+  final Value<bool?> deleted;
+  final Value<String> created;
+  final Value<String> updated;
+  final Value<bool?> unsyncedRead;
+  final Value<bool?> unsyncedCreation;
+  final Value<bool?> unsyncedUpdate;
+  final Value<String?> lastSyncUpdated;
+  final Value<int> id;
+  const UnsyncedDeletedRecordsCompanion({
+    this.rowId = const Value.absent(),
+    this.collectionId = const Value.absent(),
+    this.collectionName = const Value.absent(),
+    this.data = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.created = const Value.absent(),
+    this.updated = const Value.absent(),
+    this.unsyncedRead = const Value.absent(),
+    this.unsyncedCreation = const Value.absent(),
+    this.unsyncedUpdate = const Value.absent(),
+    this.lastSyncUpdated = const Value.absent(),
+    this.id = const Value.absent(),
+  });
+  UnsyncedDeletedRecordsCompanion.insert({
+    required String rowId,
+    required String collectionId,
+    required String collectionName,
+    required Map<String, dynamic> data,
+    this.deleted = const Value.absent(),
+    required String created,
+    required String updated,
+    this.unsyncedRead = const Value.absent(),
+    this.unsyncedCreation = const Value.absent(),
+    this.unsyncedUpdate = const Value.absent(),
+    this.lastSyncUpdated = const Value.absent(),
+    this.id = const Value.absent(),
+  })  : rowId = Value(rowId),
+        collectionId = Value(collectionId),
+        collectionName = Value(collectionName),
+        data = Value(data),
+        created = Value(created),
+        updated = Value(updated);
+  static Insertable<UnsyncedDeletedRecord> custom({
+    Expression<String>? rowId,
+    Expression<String>? collectionId,
+    Expression<String>? collectionName,
+    Expression<String>? data,
+    Expression<bool>? deleted,
+    Expression<String>? created,
+    Expression<String>? updated,
+    Expression<bool>? unsyncedRead,
+    Expression<bool>? unsyncedCreation,
+    Expression<bool>? unsyncedUpdate,
+    Expression<String>? lastSyncUpdated,
+    Expression<int>? id,
+  }) {
+    return RawValuesInsertable({
+      if (rowId != null) 'row_id': rowId,
+      if (collectionId != null) 'collection_id': collectionId,
+      if (collectionName != null) 'collection_name': collectionName,
+      if (data != null) 'data': data,
+      if (deleted != null) 'deleted': deleted,
+      if (created != null) 'created': created,
+      if (updated != null) 'updated': updated,
+      if (unsyncedRead != null) 'unsynced_read': unsyncedRead,
+      if (unsyncedCreation != null) 'unsynced_creation': unsyncedCreation,
+      if (unsyncedUpdate != null) 'unsynced_update': unsyncedUpdate,
+      if (lastSyncUpdated != null) 'last_sync_updated': lastSyncUpdated,
+      if (id != null) 'id': id,
+    });
+  }
+
+  UnsyncedDeletedRecordsCompanion copyWith(
+      {Value<String>? rowId,
+      Value<String>? collectionId,
+      Value<String>? collectionName,
+      Value<Map<String, dynamic>>? data,
+      Value<bool?>? deleted,
+      Value<String>? created,
+      Value<String>? updated,
+      Value<bool?>? unsyncedRead,
+      Value<bool?>? unsyncedCreation,
+      Value<bool?>? unsyncedUpdate,
+      Value<String?>? lastSyncUpdated,
+      Value<int>? id}) {
+    return UnsyncedDeletedRecordsCompanion(
+      rowId: rowId ?? this.rowId,
+      collectionId: collectionId ?? this.collectionId,
+      collectionName: collectionName ?? this.collectionName,
+      data: data ?? this.data,
+      deleted: deleted ?? this.deleted,
+      created: created ?? this.created,
+      updated: updated ?? this.updated,
+      unsyncedRead: unsyncedRead ?? this.unsyncedRead,
+      unsyncedCreation: unsyncedCreation ?? this.unsyncedCreation,
+      unsyncedUpdate: unsyncedUpdate ?? this.unsyncedUpdate,
+      lastSyncUpdated: lastSyncUpdated ?? this.lastSyncUpdated,
+      id: id ?? this.id,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (rowId.present) {
+      map['row_id'] = Variable<String>(rowId.value);
+    }
+    if (collectionId.present) {
+      map['collection_id'] = Variable<String>(collectionId.value);
+    }
+    if (collectionName.present) {
+      map['collection_name'] = Variable<String>(collectionName.value);
+    }
+    if (data.present) {
+      final converter = $UnsyncedDeletedRecordsTable.$converterdata;
+      map['data'] = Variable<String>(converter.toSql(data.value));
+    }
+    if (deleted.present) {
+      map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (created.present) {
+      map['created'] = Variable<String>(created.value);
+    }
+    if (updated.present) {
+      map['updated'] = Variable<String>(updated.value);
+    }
+    if (unsyncedRead.present) {
+      map['unsynced_read'] = Variable<bool>(unsyncedRead.value);
+    }
+    if (unsyncedCreation.present) {
+      map['unsynced_creation'] = Variable<bool>(unsyncedCreation.value);
+    }
+    if (unsyncedUpdate.present) {
+      map['unsynced_update'] = Variable<bool>(unsyncedUpdate.value);
+    }
+    if (lastSyncUpdated.present) {
+      map['last_sync_updated'] = Variable<String>(lastSyncUpdated.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UnsyncedDeletedRecordsCompanion(')
+          ..write('rowId: $rowId, ')
+          ..write('collectionId: $collectionId, ')
+          ..write('collectionName: $collectionName, ')
+          ..write('data: $data, ')
+          ..write('deleted: $deleted, ')
+          ..write('created: $created, ')
+          ..write('updated: $updated, ')
+          ..write('unsyncedRead: $unsyncedRead, ')
+          ..write('unsyncedCreation: $unsyncedCreation, ')
+          ..write('unsyncedUpdate: $unsyncedUpdate, ')
+          ..write('lastSyncUpdated: $lastSyncUpdated, ')
+          ..write('id: $id')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$PocketBaseDatabase extends GeneratedDatabase {
   _$PocketBaseDatabase(QueryExecutor e) : super(e);
   _$PocketBaseDatabase.connect(DatabaseConnection c) : super.connect(c);
@@ -583,9 +1399,11 @@ abstract class _$PocketBaseDatabase extends GeneratedDatabase {
   late final Trigger recordsUpdate = Trigger(
       'CREATE TRIGGER records_update AFTER UPDATE ON records BEGIN INSERT INTO text_entries (text_entries, "rowid", data) VALUES (\'delete\', new.id, new.data);INSERT INTO text_entries ("rowid", data) VALUES (new.id, new.data);END',
       'records_update');
+  late final $UnsyncedDeletedRecordsTable unsyncedDeletedRecords =
+      $UnsyncedDeletedRecordsTable(this);
   Selectable<SearchResult> _search(String query) {
     return customSelect(
-        'SELECT"r"."id" AS "nested_0.id", "r"."row_id" AS "nested_0.row_id", "r"."collection_id" AS "nested_0.collection_id", "r"."collection_name" AS "nested_0.collection_name", "r"."data" AS "nested_0.data", "r"."deleted" AS "nested_0.deleted", "r"."created" AS "nested_0.created", "r"."updated" AS "nested_0.updated" FROM text_entries INNER JOIN records AS r ON r.id = text_entries."rowid" WHERE text_entries MATCH ?1 ORDER BY rank',
+        'SELECT"r"."id" AS "nested_0.id", "r"."row_id" AS "nested_0.row_id", "r"."collection_id" AS "nested_0.collection_id", "r"."collection_name" AS "nested_0.collection_name", "r"."data" AS "nested_0.data", "r"."deleted" AS "nested_0.deleted", "r"."created" AS "nested_0.created", "r"."updated" AS "nested_0.updated", "r"."unsynced_read" AS "nested_0.unsynced_read", "r"."unsynced_creation" AS "nested_0.unsynced_creation", "r"."unsynced_update" AS "nested_0.unsynced_update", "r"."last_sync_updated" AS "nested_0.last_sync_updated" FROM text_entries INNER JOIN records AS r ON r.id = text_entries."rowid" WHERE text_entries MATCH ?1 ORDER BY rank',
         variables: [
           Variable<String>(query)
         ],
@@ -603,8 +1421,14 @@ abstract class _$PocketBaseDatabase extends GeneratedDatabase {
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [records, textEntries, recordsInsert, recordsDelete, recordsUpdate];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+        records,
+        textEntries,
+        recordsInsert,
+        recordsDelete,
+        recordsUpdate,
+        unsyncedDeletedRecords
+      ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
         [
