@@ -1,11 +1,25 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:pocketbase_drift/pocketbase_drift.dart';
 
 const username = 'test@admin.com';
 const password = 'Password123';
 const url = 'http://127.0.0.1:8090';
 
-void main() {
+const dbName = 'database.db';
+const deleteOldDatabase = false;
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (deleteOldDatabase) {
+    final appDir = await getApplicationDocumentsDirectory();
+    final dbPath = p.join(appDir.path, dbName);
+    await File(dbPath).delete();
+    assert(!(await File(dbPath).exists()));
+  }
   runApp(const MyApp());
 }
 
@@ -32,7 +46,7 @@ class Example extends StatefulWidget {
 class _ExampleState extends State<Example> {
   double? progress;
   bool loaded = false;
-  final client = PocketBaseDrift(url, dbName: 'database.db');
+  final client = PocketBaseDrift(url, dbName: dbName);
   final controller = TextEditingController();
 
   @override
@@ -51,6 +65,12 @@ class _ExampleState extends State<Example> {
         loaded = true;
       });
     }
+  }
+
+  void subscribeToChanges() {
+    client.pocketbase.collection('todo').subscribe('*', (e) {
+      debugPrint(e.record.toString());
+    });
   }
 
   Future<void> refresh(BuildContext context) async {
@@ -114,6 +134,12 @@ class _ExampleState extends State<Example> {
                   setState(() {});
                 }
               },
+            ),
+          ),
+          TextButton(
+            onPressed: subscribeToChanges,
+            child: Row(
+              children: const [Text('Start subscribe to changes')],
             ),
           ),
           Expanded(
