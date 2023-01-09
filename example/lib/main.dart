@@ -191,6 +191,7 @@ class _ExampleState extends State<Example> {
         child: Text('No records found'),
       );
     }
+    debugPrint('Total local records amount: ${records.length}');
     return ListView.separated(
       separatorBuilder: (context, index) => const Divider(),
       itemCount: records.length,
