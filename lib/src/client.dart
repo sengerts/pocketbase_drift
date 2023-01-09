@@ -25,7 +25,7 @@ class PocketBaseDrift {
   /// [PocketBase] internal database
   final PocketBaseDatabase database;
 
-  Stream<double> _fetchList(
+  Stream<double> _fetchRemoteList(
     String collection, {
     int perPage = _kDefaultPageSize,
     String? filter,
@@ -38,42 +38,53 @@ class PocketBaseDrift {
     final result = <ExtendedRecordModel>[];
 
     Stream<double> request(int page) async* {
-      try {
-        final list = await pocketbase.collection(collection).getList(
-              page: page,
-              perPage: perPage,
-              filter: filter,
-              sort: sort,
-              query: query,
-              headers: headers,
-            );
+      // if this fails (e.g. due to loss of internet connection), the outer transaction will be rollbacked
+      final list = await pocketbase.collection(collection).getList(
+            page: page,
+            perPage: perPage,
+            filter: filter,
+            sort: sort,
+            query: query,
+            headers: headers,
+          );
 
-        final extendedListItems = list.items.map(buildFreshExtendedRecordModelFrom).toList();
+      final extendedListItems = list.items.map(buildFreshExtendedRecordModelFrom).toList();
 
-        debugPrint('fetched ${list.items.length} records for $collection');
-        result.addAll(extendedListItems);
+      debugPrint('fetched ${list.items.length} records for $collection');
+      result.addAll(extendedListItems);
 
-        final progress = list.page / list.totalPages;
-        if (!progress.isInfinite) {
-          yield progress;
-        }
-
-        // Add to database
-        await database.setRecords(extendedListItems);
-
-        if (list.items.isNotEmpty && list.totalItems > result.length) {
-          yield* request(page + 1);
-        }
-      } catch (e) {
-        debugPrint('error fetching records for $collection: $e');
-        // TODO Mark collection locally as dirty/ old
-        onError?.call(e);
+      final progress = list.page / list.totalPages;
+      if (!progress.isInfinite) {
+        yield progress;
       }
+
+      // Add to database
+      await database.setRecords(extendedListItems);
+
+      if (list.items.isNotEmpty && list.totalItems > result.length) {
+        yield* request(page + 1);
+      }
+
+      // TODO Store (collection,filter) last full sync entry
     }
 
-    yield* request(1);
+    final streamController = StreamController<double>();
 
-    yield 1.0;
+    try {
+      await database.transaction(() async {
+        streamController.addStream(request(1));
+        streamController.add(1.0);
+      });
+    } catch (e) {
+      // in case of any error during fetching, the whole transaction is rollbacked -> same local data as before trying to fetch from remote
+      debugPrint('error fetching records for $collection: $e');
+      // TODO Mark collection locally as dirty/ old
+      onError?.call(e);
+    } finally {
+      streamController.close();
+    }
+
+    yield* streamController.stream;
   }
 
   Future<ExtendedRecordModel?> getRecord(
@@ -127,7 +138,7 @@ class PocketBaseDrift {
   }) async {
     if (policy == FetchPolicy.remoteOnly) {
       try {
-        await _fetchList(collection, onError: onError).last;
+        await _fetchRemoteList(collection, onError: onError).last;
       } catch (e) {
         debugPrint('error getting remote records for $collection --> $e');
         // no data can be retrieved so we must rethrow the error
@@ -202,9 +213,7 @@ class PocketBaseDrift {
 
       item = await getRecord(collection, id);
       if (item == null) {
-        debugPrint('no local record found with id $id --> $e');
-        // neither remote nor local item available, so rethrow
-        rethrow;
+        rethrow; // should not get here as above getRecord already rethrows if neither remote nor local record available
       }
 
       // Update local item and mark it as unsynced update
@@ -255,16 +264,29 @@ class PocketBaseDrift {
 
     // TODO Wrap with try catch and call onError handler on failure
 
+    /* TODO Lock remote database collection so C,U,D operations on data during syncing will be denied (pessimistic locking)
+        -> this should prevent inconsistencies causes by simultaneous syncing of user A and operation of user B
+     */
+
     ///
     /// PUSH LOCAL (OFFLINE) CHANGES TO ONLINE COLLECTION
     ///
 
-    /* TODO Find all marked unsynced local items in collection and for each:
-        if unsynced creation: always add since equivalency check hard/ not useful in general
-        if unsynced update or unsynced delete:
+    /* TODO Find all marked unsynced created local items in collection and for each:
+        if no corresponding unsynced delete for same item: always add since equivalency check hard/ not useful in general
+     */
+
+    /* TODO Find all marked unsynced updated local items in collection and for each:
+        if no corresponding unsynced delete for same item:
           1. find corresponding online record, if it exists and updatedAt > lastSyncUpdated of local record, call
           merge conflict resolution callback (let user decide which version to keep) and then act accordingly
-          2. else for update: overwrite online record with local record, for deletion. delete online record as well
+          2. else: overwrite online record with local record, for deletion. delete online record as well
+     */
+
+    /* TODO Find all marked unsynced local items in collection and for each:
+        if there is a corresponding unsynced creation for same item (item locally created and deleted without ever being available remotely):
+          do thing
+        else: delete record online
      */
 
     ///
@@ -276,21 +298,35 @@ class PocketBaseDrift {
         local collection with it to enable consistency between local and remote collection
      */
 
+    // TODO Determine lastSynced = max(last full sync whole collection, last full sync collection with given filter)
+    // TODO Only retrieve remote entries with updated > lastSynced
     final local = await database.getRecords(collection);
     final lastRecord = local.newest(); // TODO exclude dirty records such that we retrieve the newest record in sync with online collection
 
-    yield* _fetchList(
+    yield* _fetchRemoteList(
       collection,
       filter: lastRecord == null
           ? filter
           : [
-              "updated > '${lastRecord.updated}'", // TODO Can we still do this with the goal states above?
+              "updated > '${lastRecord.updated /* TODO Replace with lastSynced */}'",
               if (filter != null) filter,
             ].join(' && '),
       onError: onError,
     );
 
+    /* TODO To handle remote deletions not reflected locally yet, retrieve (filtered) collection size remotely and compare with
+        local size of same (filtered) collection:
+
+        If remote_size = local_size: everything in sync now
+        if remote_size < local_size: remote deletions not reflected locally -> identify these and delete locally as well
+        if remote_size > local_size: either we have a bug in our sync logic or the user's app lost
+          internet connection/ crashed during an unfortunate time (e.g. during sync)
+          or during sync a remote item was added -> full resync needed
+     */
+
     yield 1.0;
+
+    // TODO Unlock remote database collection again
   }
 
   Future<List<ExtendedRecordModel>> search(
@@ -312,6 +348,7 @@ class PocketBaseDrift {
       collectionId: recordModel.collectionId,
       collectionName: recordModel.collectionName,
       data: recordModel.data,
+      unsyncedRead: false,
       unsyncedCreation: false,
       unsyncedUpdate: false,
       lastSyncUpdated: recordModel.updated,
@@ -335,7 +372,8 @@ class PocketBaseDrift {
       collectionId: recordModel.collectionId,
       collectionName: recordModel.collectionName,
       data: data,
-      unsyncedCreation: false,
+      unsyncedRead: recordModel.unsyncedRead,
+      unsyncedCreation: recordModel.unsyncedCreation,
       unsyncedUpdate: true,
       lastSyncUpdated: recordModel.lastSyncUpdated,
     );
