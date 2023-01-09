@@ -265,6 +265,8 @@ class PocketBaseDrift {
         -> this should prevent inconsistencies causes by simultaneous syncing of user A and operation of user B
      */
 
+    // TODO As soon as pocketbase supports transactions, use a transaction here
+
     ///
     /// PUSH LOCAL (OFFLINE) CHANGES TO ONLINE COLLECTION
     ///
