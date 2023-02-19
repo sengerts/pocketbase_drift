@@ -291,11 +291,6 @@ class PocketBaseDrift {
     /// PULL NEW DATA FROM ONLINE COLLECTION
     ///
 
-    /* TODO Check what _fetchList -> setRecords does exactly: it seems that it only adds the new entries and old (lo longer existing) entries stay
-        especially we do not detect deleted remote entries this way, so I think we should just load the whole collection from remote and replace the
-        local collection with it to enable consistency between local and remote collection
-     */
-
     final lastSyncedWholeCollection = await database.getLastFullSyncTimestamp(collection, null);
     final lastSyncedFilteredCollection = await database.getLastFullSyncTimestamp(collection, filter);
 
