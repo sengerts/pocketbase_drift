@@ -67,12 +67,11 @@ class PocketBaseDrift {
       if (list.items.isNotEmpty && list.totalItems > result.length) {
         await request(page + 1, streamController);
       }
-
-      // TODO Store (collection,filter) last full sync entry
     }
 
     database.transaction(() async {
       await request(1, streamController);
+      await database.setLastFullSyncTimestamp(collection, filter);
       streamController.add(1.0);
     }).catchError((e) {
       // in case of any error during fetching, the whole transaction is rollbacked -> same local data as before trying to fetch from remote
@@ -297,17 +296,26 @@ class PocketBaseDrift {
         local collection with it to enable consistency between local and remote collection
      */
 
-    // TODO Determine lastSynced = max(last full sync whole collection, last full sync collection with given filter)
-    // TODO Only retrieve remote entries with updated > lastSynced
-    final local = await database.getRecords(collection);
-    final lastRecord = local.newest(); // TODO exclude dirty records such that we retrieve the newest record in sync with online collection
+    final lastSyncedWholeCollection = await database.getLastFullSyncTimestamp(collection, null);
+    final lastSyncedFilteredCollection = await database.getLastFullSyncTimestamp(collection, filter);
+
+    DateTime? lastSynced;
+    if (lastSyncedWholeCollection != null && lastSyncedFilteredCollection != null) {
+      lastSynced = [lastSyncedWholeCollection.syncTimestamp, lastSyncedFilteredCollection.syncTimestamp].reduce((a, b) => a.isAfter(b) ? a : b);
+    } else if (lastSyncedWholeCollection != null) {
+      lastSynced = lastSyncedWholeCollection.syncTimestamp;
+    } else if (lastSyncedFilteredCollection != null) {
+      lastSynced = lastSyncedFilteredCollection.syncTimestamp;
+    } else {
+      lastSynced = null;
+    }
 
     yield* _fetchRemoteList(
       collection,
-      filter: lastRecord == null
+      filter: lastSynced == null
           ? filter
           : [
-              "updated > '${lastRecord.updated /* TODO Replace with lastSynced */}'",
+              "updated > '${lastSynced.toUtc()}'", // TODO Check if this works correctly with PocketBase
               if (filter != null) filter,
             ].join(' && '),
       onError: onError,

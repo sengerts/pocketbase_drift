@@ -1,7 +1,7 @@
 library pocketbase_drift_store;
 
 import 'dart:async';
-import 'dart:ffi';
+import 'dart:math';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';

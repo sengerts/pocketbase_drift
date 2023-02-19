@@ -6,7 +6,7 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Records, UnsyncedDeletedRecords], include: {'sql.drift'})
+@DriftDatabase(tables: [Records, UnsyncedDeletedRecords, LastFullCollectionSyncs], include: {'sql.drift'})
 class PocketBaseDatabase extends _$PocketBaseDatabase {
   PocketBaseDatabase({
     String dbName = 'database.db',
@@ -24,6 +24,22 @@ class PocketBaseDatabase extends _$PocketBaseDatabase {
 
   @override
   int get schemaVersion => 1;
+
+  Future<LastFullCollectionSync?> getLastFullSyncTimestamp(String collection, String? filter) async {
+    final query = select(lastFullCollectionSyncs)
+      ..where((t) => t.collectionName.equals(collection))
+      ..where((t) => filter == null ? t.filter.isNull() : t.filter.equals(filter))
+      ..orderBy([(t) => OrderingTerm.desc(lastFullCollectionSyncs.syncTimestamp)])
+      ..limit(1);
+    final item = await query.getSingleOrNull();
+    return item;
+  }
+
+  Future<int> setLastFullSyncTimestamp(String collection, String? filter) async {
+    final entry = LastFullCollectionSyncsCompanion.insert(collectionId: collection, collectionName: collection, syncTimestamp: DateTime.now());
+    final id = await into(lastFullCollectionSyncs).insert(entry);
+    return id;
+  }
 
   Future<int> setRecord(ExtendedRecordModel item) async {
     final id = await into(records).insert(
@@ -163,14 +179,7 @@ class ExtendedRecordModel extends RecordModel {
     this.unsyncedCreation,
     this.unsyncedUpdate,
     this.lastSyncUpdated,
-  }) : super(
-            id: id,
-            created: created,
-            updated: updated,
-            collectionId: collectionId,
-            collectionName: collectionName,
-            expand: expand,
-            data: data);
+  }) : super(id: id, created: created, updated: updated, collectionId: collectionId, collectionName: collectionName, expand: expand, data: data);
 
   RecordsCompanion toCompanion([int? currentId]) {
     return RecordsCompanion.insert(

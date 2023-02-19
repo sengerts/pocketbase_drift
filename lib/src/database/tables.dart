@@ -11,8 +11,7 @@ class Records extends Table with AutoIncrementingPrimaryKey {
   BoolColumn get deleted => boolean().nullable()();
   TextColumn get created => text()();
   TextColumn get updated => text()();
-  BoolColumn get unsyncedRead =>
-      boolean().nullable()(); // unsynced read (local data may deviate from remote data due to unsuccessful fetch)
+  BoolColumn get unsyncedRead => boolean().nullable()(); // unsynced read (local data may deviate from remote data due to unsuccessful fetch)
   BoolColumn get unsyncedCreation => boolean().nullable()(); // local data creation that is not synced remotely yet
   BoolColumn get unsyncedUpdate => boolean().nullable()(); // local data update that is not synced remotely yet
   TextColumn get lastSyncUpdated => text().nullable()(); // last datetime of successful sync
@@ -25,6 +24,19 @@ class Records extends Table with AutoIncrementingPrimaryKey {
 
 @DataClassName('UnsyncedDeletedRecord')
 class UnsyncedDeletedRecords extends Records {}
+
+@DataClassName('LastFullCollectionSync')
+class LastFullCollectionSyncs extends Table with AutoIncrementingPrimaryKey {
+  TextColumn get collectionId => text()();
+  TextColumn get collectionName => text()();
+  TextColumn get filter => text().nullable()();
+  DateTimeColumn get syncTimestamp => dateTime()();
+
+  @override
+  List<Set<Column<Object>>>? get uniqueKeys => [
+        {collectionId, filter, syncTimestamp},
+      ];
+}
 
 mixin AutoIncrementingPrimaryKey on Table {
   IntColumn get id => integer().autoIncrement()();

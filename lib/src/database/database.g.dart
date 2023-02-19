@@ -1385,6 +1385,307 @@ class UnsyncedDeletedRecordsCompanion
   }
 }
 
+class $LastFullCollectionSyncsTable extends LastFullCollectionSyncs
+    with TableInfo<$LastFullCollectionSyncsTable, LastFullCollectionSync> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LastFullCollectionSyncsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _collectionIdMeta =
+      const VerificationMeta('collectionId');
+  @override
+  late final GeneratedColumn<String> collectionId = GeneratedColumn<String>(
+      'collection_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _collectionNameMeta =
+      const VerificationMeta('collectionName');
+  @override
+  late final GeneratedColumn<String> collectionName = GeneratedColumn<String>(
+      'collection_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _filterMeta = const VerificationMeta('filter');
+  @override
+  late final GeneratedColumn<String> filter = GeneratedColumn<String>(
+      'filter', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _syncTimestampMeta =
+      const VerificationMeta('syncTimestamp');
+  @override
+  late final GeneratedColumn<DateTime> syncTimestamp =
+      GeneratedColumn<DateTime>('sync_timestamp', aliasedName, false,
+          type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, collectionId, collectionName, filter, syncTimestamp];
+  @override
+  String get aliasedName => _alias ?? 'last_full_collection_syncs';
+  @override
+  String get actualTableName => 'last_full_collection_syncs';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<LastFullCollectionSync> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('collection_id')) {
+      context.handle(
+          _collectionIdMeta,
+          collectionId.isAcceptableOrUnknown(
+              data['collection_id']!, _collectionIdMeta));
+    } else if (isInserting) {
+      context.missing(_collectionIdMeta);
+    }
+    if (data.containsKey('collection_name')) {
+      context.handle(
+          _collectionNameMeta,
+          collectionName.isAcceptableOrUnknown(
+              data['collection_name']!, _collectionNameMeta));
+    } else if (isInserting) {
+      context.missing(_collectionNameMeta);
+    }
+    if (data.containsKey('filter')) {
+      context.handle(_filterMeta,
+          filter.isAcceptableOrUnknown(data['filter']!, _filterMeta));
+    }
+    if (data.containsKey('sync_timestamp')) {
+      context.handle(
+          _syncTimestampMeta,
+          syncTimestamp.isAcceptableOrUnknown(
+              data['sync_timestamp']!, _syncTimestampMeta));
+    } else if (isInserting) {
+      context.missing(_syncTimestampMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+        {collectionId, filter, syncTimestamp},
+      ];
+  @override
+  LastFullCollectionSync map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LastFullCollectionSync(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      collectionId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}collection_id'])!,
+      collectionName: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}collection_name'])!,
+      filter: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}filter']),
+      syncTimestamp: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}sync_timestamp'])!,
+    );
+  }
+
+  @override
+  $LastFullCollectionSyncsTable createAlias(String alias) {
+    return $LastFullCollectionSyncsTable(attachedDatabase, alias);
+  }
+}
+
+class LastFullCollectionSync extends DataClass
+    implements Insertable<LastFullCollectionSync> {
+  final int id;
+  final String collectionId;
+  final String collectionName;
+  final String? filter;
+  final DateTime syncTimestamp;
+  const LastFullCollectionSync(
+      {required this.id,
+      required this.collectionId,
+      required this.collectionName,
+      this.filter,
+      required this.syncTimestamp});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['collection_id'] = Variable<String>(collectionId);
+    map['collection_name'] = Variable<String>(collectionName);
+    if (!nullToAbsent || filter != null) {
+      map['filter'] = Variable<String>(filter);
+    }
+    map['sync_timestamp'] = Variable<DateTime>(syncTimestamp);
+    return map;
+  }
+
+  LastFullCollectionSyncsCompanion toCompanion(bool nullToAbsent) {
+    return LastFullCollectionSyncsCompanion(
+      id: Value(id),
+      collectionId: Value(collectionId),
+      collectionName: Value(collectionName),
+      filter:
+          filter == null && nullToAbsent ? const Value.absent() : Value(filter),
+      syncTimestamp: Value(syncTimestamp),
+    );
+  }
+
+  factory LastFullCollectionSync.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LastFullCollectionSync(
+      id: serializer.fromJson<int>(json['id']),
+      collectionId: serializer.fromJson<String>(json['collectionId']),
+      collectionName: serializer.fromJson<String>(json['collectionName']),
+      filter: serializer.fromJson<String?>(json['filter']),
+      syncTimestamp: serializer.fromJson<DateTime>(json['syncTimestamp']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'collectionId': serializer.toJson<String>(collectionId),
+      'collectionName': serializer.toJson<String>(collectionName),
+      'filter': serializer.toJson<String?>(filter),
+      'syncTimestamp': serializer.toJson<DateTime>(syncTimestamp),
+    };
+  }
+
+  LastFullCollectionSync copyWith(
+          {int? id,
+          String? collectionId,
+          String? collectionName,
+          Value<String?> filter = const Value.absent(),
+          DateTime? syncTimestamp}) =>
+      LastFullCollectionSync(
+        id: id ?? this.id,
+        collectionId: collectionId ?? this.collectionId,
+        collectionName: collectionName ?? this.collectionName,
+        filter: filter.present ? filter.value : this.filter,
+        syncTimestamp: syncTimestamp ?? this.syncTimestamp,
+      );
+  @override
+  String toString() {
+    return (StringBuffer('LastFullCollectionSync(')
+          ..write('id: $id, ')
+          ..write('collectionId: $collectionId, ')
+          ..write('collectionName: $collectionName, ')
+          ..write('filter: $filter, ')
+          ..write('syncTimestamp: $syncTimestamp')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, collectionId, collectionName, filter, syncTimestamp);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LastFullCollectionSync &&
+          other.id == this.id &&
+          other.collectionId == this.collectionId &&
+          other.collectionName == this.collectionName &&
+          other.filter == this.filter &&
+          other.syncTimestamp == this.syncTimestamp);
+}
+
+class LastFullCollectionSyncsCompanion
+    extends UpdateCompanion<LastFullCollectionSync> {
+  final Value<int> id;
+  final Value<String> collectionId;
+  final Value<String> collectionName;
+  final Value<String?> filter;
+  final Value<DateTime> syncTimestamp;
+  const LastFullCollectionSyncsCompanion({
+    this.id = const Value.absent(),
+    this.collectionId = const Value.absent(),
+    this.collectionName = const Value.absent(),
+    this.filter = const Value.absent(),
+    this.syncTimestamp = const Value.absent(),
+  });
+  LastFullCollectionSyncsCompanion.insert({
+    this.id = const Value.absent(),
+    required String collectionId,
+    required String collectionName,
+    this.filter = const Value.absent(),
+    required DateTime syncTimestamp,
+  })  : collectionId = Value(collectionId),
+        collectionName = Value(collectionName),
+        syncTimestamp = Value(syncTimestamp);
+  static Insertable<LastFullCollectionSync> custom({
+    Expression<int>? id,
+    Expression<String>? collectionId,
+    Expression<String>? collectionName,
+    Expression<String>? filter,
+    Expression<DateTime>? syncTimestamp,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (collectionId != null) 'collection_id': collectionId,
+      if (collectionName != null) 'collection_name': collectionName,
+      if (filter != null) 'filter': filter,
+      if (syncTimestamp != null) 'sync_timestamp': syncTimestamp,
+    });
+  }
+
+  LastFullCollectionSyncsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? collectionId,
+      Value<String>? collectionName,
+      Value<String?>? filter,
+      Value<DateTime>? syncTimestamp}) {
+    return LastFullCollectionSyncsCompanion(
+      id: id ?? this.id,
+      collectionId: collectionId ?? this.collectionId,
+      collectionName: collectionName ?? this.collectionName,
+      filter: filter ?? this.filter,
+      syncTimestamp: syncTimestamp ?? this.syncTimestamp,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (collectionId.present) {
+      map['collection_id'] = Variable<String>(collectionId.value);
+    }
+    if (collectionName.present) {
+      map['collection_name'] = Variable<String>(collectionName.value);
+    }
+    if (filter.present) {
+      map['filter'] = Variable<String>(filter.value);
+    }
+    if (syncTimestamp.present) {
+      map['sync_timestamp'] = Variable<DateTime>(syncTimestamp.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LastFullCollectionSyncsCompanion(')
+          ..write('id: $id, ')
+          ..write('collectionId: $collectionId, ')
+          ..write('collectionName: $collectionName, ')
+          ..write('filter: $filter, ')
+          ..write('syncTimestamp: $syncTimestamp')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$PocketBaseDatabase extends GeneratedDatabase {
   _$PocketBaseDatabase(QueryExecutor e) : super(e);
   _$PocketBaseDatabase.connect(DatabaseConnection c) : super.connect(c);
@@ -1401,6 +1702,8 @@ abstract class _$PocketBaseDatabase extends GeneratedDatabase {
       'records_update');
   late final $UnsyncedDeletedRecordsTable unsyncedDeletedRecords =
       $UnsyncedDeletedRecordsTable(this);
+  late final $LastFullCollectionSyncsTable lastFullCollectionSyncs =
+      $LastFullCollectionSyncsTable(this);
   Selectable<SearchResult> _search(String query) {
     return customSelect(
         'SELECT"r"."id" AS "nested_0.id", "r"."row_id" AS "nested_0.row_id", "r"."collection_id" AS "nested_0.collection_id", "r"."collection_name" AS "nested_0.collection_name", "r"."data" AS "nested_0.data", "r"."deleted" AS "nested_0.deleted", "r"."created" AS "nested_0.created", "r"."updated" AS "nested_0.updated", "r"."unsynced_read" AS "nested_0.unsynced_read", "r"."unsynced_creation" AS "nested_0.unsynced_creation", "r"."unsynced_update" AS "nested_0.unsynced_update", "r"."last_sync_updated" AS "nested_0.last_sync_updated" FROM text_entries INNER JOIN records AS r ON r.id = text_entries."rowid" WHERE text_entries MATCH ?1 ORDER BY rank',
@@ -1427,7 +1730,8 @@ abstract class _$PocketBaseDatabase extends GeneratedDatabase {
         recordsInsert,
         recordsDelete,
         recordsUpdate,
-        unsyncedDeletedRecords
+        unsyncedDeletedRecords,
+        lastFullCollectionSyncs
       ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
